@@ -102,7 +102,7 @@ exports.updateOrder = async (req, res) => {
       { new: true, runValidators: true }
     ).populate('cropId farmerId buyerId transporterId');
 
-    res.json(updatedOrder);
+    res.json(updatedOrder); 
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
