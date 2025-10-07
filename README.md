@@ -24,5 +24,5 @@ Backend API for the Agri-Logistics Platform built with Node.js, Express, and Mon
 
 1. Clone the repository:
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/MJLEGION/agri-logistics-backend.git
 cd agri-logistics-backend
