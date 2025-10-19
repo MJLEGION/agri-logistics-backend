@@ -1,4 +1,4 @@
-const User = require('../models/User');
+const User = require('../models/user');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
@@ -58,16 +58,21 @@ exports.register = async (req, res) => {
 // @access  Public
 exports.login = async (req, res) => {
   try {
-    const { phone, password } = req.body;
+    const { phone, password, role } = req.body;
 
     // Validation
-    if (!phone || !password) {
-      return res.status(400).json({ message: 'Please provide phone and password' });
+    if (!phone || !password || !role) {
+      return res.status(400).json({ message: 'Please provide phone, password, and role' });
     }
 
     // Check user
     const user = await User.findOne({ phone });
     if (!user) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Check if role matches
+    if (user.role !== role) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
