@@ -13,11 +13,19 @@ const protect = async (req, res, next) => {
       return res.status(401).json({ message: 'Not authorized, no token' });
     }
 
+    // Verify access token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = await User.findById(decoded.id).select('-password');
+    req.user = await User.findById(decoded.id).select('-password -refreshTokens');
     
+    if (!req.user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
     next();
   } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: 'Access token expired, please refresh' });
+    }
     return res.status(401).json({ message: 'Not authorized, token failed' });
   }
 };

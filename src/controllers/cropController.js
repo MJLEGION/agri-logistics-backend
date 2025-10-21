@@ -1,4 +1,4 @@
-const Crop = require('../models/Crop');
+const Crop = require('../models/crop');
 
 // @desc    Get all crops
 // @route   GET /api/crops

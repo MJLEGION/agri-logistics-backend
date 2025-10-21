@@ -1,5 +1,5 @@
-const Order = require('../models/Order');
-const Crop = require('../models/Crop');
+const Order = require('../models/order');
+const Crop = require('../models/crop');
 
 // @desc    Get all orders
 // @route   GET /api/orders
