@@ -40,18 +40,73 @@ exports.createCrop = async (req, res) => {
 
     const { name, quantity, unit, pricePerUnit, harvestDate, location } = req.body;
 
+    // Input validation
+    if (!name || !quantity || !harvestDate || !location) {
+      return res.status(400).json({ message: 'Please provide all required fields: name, quantity, harvestDate, location' });
+    }
+
+    if (typeof name !== 'string' || name.trim().length === 0) {
+      return res.status(400).json({ message: 'Crop name must be a non-empty string' });
+    }
+
+    if (typeof quantity !== 'number' || quantity <= 0) {
+      return res.status(400).json({ message: 'Quantity must be a positive number' });
+    }
+
+    if (unit && !['kg', 'tons', 'bags'].includes(unit)) {
+      return res.status(400).json({ message: 'Unit must be one of: kg, tons, bags' });
+    }
+
+    if (pricePerUnit !== undefined && (typeof pricePerUnit !== 'number' || pricePerUnit < 0)) {
+      return res.status(400).json({ message: 'Price per unit must be a non-negative number' });
+    }
+
+    const harvestDateObj = new Date(harvestDate);
+    if (isNaN(harvestDateObj.getTime())) {
+      return res.status(400).json({ message: 'Invalid harvest date format' });
+    }
+
+    if (!location || typeof location !== 'object') {
+      return res.status(400).json({ message: 'Location must be an object' });
+    }
+
+    const { latitude, longitude, address } = location;
+    if (latitude === undefined || longitude === undefined || !address) {
+      return res.status(400).json({ message: 'Location must include latitude, longitude, and address' });
+    }
+
+    if (typeof latitude !== 'number' || latitude < -90 || latitude > 90) {
+      return res.status(400).json({ message: 'Latitude must be a number between -90 and 90' });
+    }
+
+    if (typeof longitude !== 'number' || longitude < -180 || longitude > 180) {
+      return res.status(400).json({ message: 'Longitude must be a number between -180 and 180' });
+    }
+
+    if (typeof address !== 'string' || address.trim().length === 0) {
+      return res.status(400).json({ message: 'Address must be a non-empty string' });
+    }
+
     const crop = await Crop.create({
       farmerId: req.user._id,
-      name,
+      name: name.trim(),
       quantity,
-      unit,
+      unit: unit || 'kg',
       pricePerUnit,
-      harvestDate,
-      location
+      harvestDate: harvestDateObj,
+      location: {
+        latitude,
+        longitude,
+        address: address.trim()
+      }
     });
 
     res.status(201).json(crop);
   } catch (error) {
+    if (error.name === 'ValidationError') {
+      const message = Object.values(error.errors).map(err => err.message).join(', ');
+      return res.status(400).json({ message });
+    }
     res.status(500).json({ message: error.message });
   }
 };
