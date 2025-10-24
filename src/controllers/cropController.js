@@ -88,7 +88,7 @@ exports.createCrop = async (req, res) => {
     }
 
     const crop = await Crop.create({
-      farmerId: req.user._id,
+      farmerId: req.userId,
       name: name.trim(),
       quantity,
       unit: unit || 'kg',
@@ -123,8 +123,11 @@ exports.updateCrop = async (req, res) => {
     }
 
     // Check ownership
-    if (crop.farmerId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized to update this crop' });
+    if (crop.farmerId.toString() !== req.userId.toString()) {
+      return res.status(403).json({ 
+        success: false,
+        message: 'Not authorized to update this crop' 
+      });
     }
 
     const updatedCrop = await Crop.findByIdAndUpdate(
@@ -151,12 +154,18 @@ exports.deleteCrop = async (req, res) => {
     }
 
     // Check ownership
-    if (crop.farmerId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized to delete this crop' });
+    if (crop.farmerId.toString() !== req.userId.toString()) {
+      return res.status(403).json({ 
+        success: false,
+        message: 'Not authorized to delete this crop' 
+      });
     }
 
     await Crop.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Crop deleted successfully' });
+    res.json({ 
+      success: true,
+      message: 'Crop deleted successfully' 
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

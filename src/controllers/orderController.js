@@ -115,7 +115,7 @@ exports.createOrder = async (req, res) => {
     const order = await Order.create({
       cropId,
       farmerId: crop.farmerId,
-      buyerId: req.user._id,
+      buyerId: req.userId,
       quantity,
       totalPrice,
       pickupLocation: {
@@ -161,18 +161,21 @@ exports.updateOrder = async (req, res) => {
 
     // Authorization: Check if user is involved in the order
     const isAuthorized = 
-      req.user._id.toString() === order.farmerId.toString() ||
-      req.user._id.toString() === order.buyerId.toString() ||
-      (order.transporterId && req.user._id.toString() === order.transporterId.toString());
+      req.userId.toString() === order.farmerId.toString() ||
+      req.userId.toString() === order.buyerId.toString() ||
+      (order.transporterId && req.userId.toString() === order.transporterId.toString());
 
     if (!isAuthorized) {
-      return res.status(403).json({ message: 'Not authorized to update this order' });
+      return res.status(403).json({ 
+        success: false,
+        message: 'Not authorized to update this order' 
+      });
     }
 
     // Only allow updates to specific fields based on user role
     const allowedUpdates = {};
     
-    if (req.user.role === 'transporter' && req.user._id.toString() === order.transporterId?.toString()) {
+    if (req.userRole === 'transporter' && req.userId.toString() === order.transporterId?.toString()) {
       // Transporters can only update status and delivery location
       if (req.body.status !== undefined) allowedUpdates.status = req.body.status;
       if (req.body.deliveryLocation !== undefined) allowedUpdates.deliveryLocation = req.body.deliveryLocation;
@@ -207,25 +210,34 @@ exports.updateOrder = async (req, res) => {
 // @access  Private (Transporter only)
 exports.acceptOrder = async (req, res) => {
   try {
-    if (req.user.role !== 'transporter') {
-      return res.status(403).json({ message: 'Only transporters can accept orders' });
-    }
-
     const order = await Order.findById(req.params.id);
 
     if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'Order not found' 
+      });
     }
 
     if (order.transporterId) {
-      return res.status(400).json({ message: 'Order already has a transporter' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Order already has a transporter' 
+      });
     }
 
-    order.transporterId = req.user._id;
+    order.transporterId = req.userId;
     order.status = 'in_progress';
     await order.save();
 
-    res.json(order);
+    // Update crop status to 'matched'
+    await Crop.findByIdAndUpdate(order.cropId, { status: 'matched' });
+
+    res.json({
+      success: true,
+      data: order,
+      message: 'Order accepted successfully'
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -238,22 +250,29 @@ exports.getMyOrders = async (req, res) => {
   try {
     let query = {};
 
-    if (req.user.role === 'farmer') {
-      query.farmerId = req.user._id;
-    } else if (req.user.role === 'buyer') {
-      query.buyerId = req.user._id;
-    } else if (req.user.role === 'transporter') {
-      query.transporterId = req.user._id;
+    if (req.userRole === 'farmer') {
+      query.farmerId = req.userId;
+    } else if (req.userRole === 'buyer') {
+      query.buyerId = req.userId;
+    } else if (req.userRole === 'transporter') {
+      query.transporterId = req.userId;
     }
 
     const orders = await Order.find(query)
       .populate('cropId', 'name quantity unit')
       .populate('farmerId', 'name phone')
       .populate('buyerId', 'name phone')
-      .populate('transporterId', 'name phone');
+      .populate('transporterId', 'name phone')
+      .sort({ createdAt: -1 });
 
-    res.json(orders);
+    res.json({
+      success: true,
+      data: orders
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: error.message 
+    });
   }
 };

@@ -8,15 +8,15 @@ const {
   acceptOrder,
   getMyOrders
 } = require('../controllers/orderController');
-const { protect } = require('../middleware/auth');
-
-router.route('/')
-  .get(protect, getAllOrders)
-  .post(protect, createOrder);
+const { protect, authorize } = require('../middleware/auth');
 
 // Define specific routes before :id route to prevent :id from intercepting them
 router.get('/my-orders', protect, getMyOrders);
-router.put('/:id/accept', protect, acceptOrder);
+router.put('/:id/accept', protect, authorize('transporter'), acceptOrder);
+
+router.route('/')
+  .get(protect, getAllOrders)
+  .post(protect, authorize('buyer'), createOrder);
 
 router.route('/:id')
   .get(protect, getOrderById)

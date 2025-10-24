@@ -8,16 +8,16 @@ const {
   deleteCrop,
   getCropsByFarmer
 } = require('../controllers/cropController');
-const { protect } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 
 router.route('/')
-  .get(getAllCrops)
-  .post(protect, createCrop);
+  .get(protect, getAllCrops)
+  .post(protect, authorize('farmer'), createCrop);
 
 router.route('/:id')
-  .get(getCropById)
-  .put(protect, updateCrop)
-  .delete(protect, deleteCrop);
+  .get(protect, getCropById)
+  .put(protect, authorize('farmer'), updateCrop)
+  .delete(protect, authorize('farmer'), deleteCrop);
 
 router.get('/farmer/:farmerId', getCropsByFarmer);
 

@@ -6,15 +6,15 @@ const jwt = require('jsonwebtoken');
 const tokenBlacklist = new Set();
 
 // Generate Access Token (1 hour)
-const generateAccessToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
+const generateAccessToken = (id, role) => {
+  return jwt.sign({ userId: id, role }, process.env.JWT_SECRET, {
     expiresIn: '1h'
   });
 };
 
 // Generate Refresh Token (7 days)
 const generateRefreshToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET, {
+  return jwt.sign({ userId: id }, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET, {
     expiresIn: '7d'
   });
 };
@@ -98,7 +98,7 @@ exports.register = async (req, res) => {
     });
 
     if (user) {
-      const accessToken = generateAccessToken(user._id);
+      const accessToken = generateAccessToken(user._id, user.role);
       const refreshToken = generateRefreshToken(user._id);
       
       // Save refresh token
@@ -108,14 +108,14 @@ exports.register = async (req, res) => {
       res.status(201).json({
         success: true,
         message: 'Registration successful',
+        token: accessToken,
+        refreshToken,
         user: {
           _id: user._id,
           name: user.name,
           phone: user.phone,
           role: user.role
-        },
-        accessToken,
-        refreshToken
+        }
       });
     }
   } catch (error) {
@@ -177,7 +177,7 @@ exports.login = async (req, res) => {
     // Reset failed attempts on successful login
     await resetFailedAttempts(user);
 
-    const accessToken = generateAccessToken(user._id);
+    const accessToken = generateAccessToken(user._id, user.role);
     const refreshToken = generateRefreshToken(user._id);
     
     // Save refresh token
@@ -187,14 +187,14 @@ exports.login = async (req, res) => {
     res.json({
       success: true,
       message: `Welcome back, ${user.name}!`,
+      token: accessToken,
+      refreshToken,
       user: {
         _id: user._id,
         name: user.name,
         phone: user.phone,
         role: user.role
-      },
-      accessToken,
-      refreshToken
+      }
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -219,7 +219,7 @@ exports.refreshAccessToken = async (req, res) => {
 
     // Verify refresh token
     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id);
+    const user = await User.findById(decoded.userId);
 
     if (!user) {
       return res.status(401).json({ message: 'User not found' });
@@ -231,11 +231,25 @@ exports.refreshAccessToken = async (req, res) => {
       return res.status(401).json({ message: 'Refresh token invalid' });
     }
 
-    // Generate new access token
-    const newAccessToken = generateAccessToken(user._id);
+    // Generate new tokens
+    const newAccessToken = generateAccessToken(user._id, user.role);
+    const newRefreshToken = generateRefreshToken(user._id);
+    
+    // Update stored refresh token
+    user.refreshTokens = user.refreshTokens.filter(t => t.token !== refreshToken);
+    user.refreshTokens.push({ token: newRefreshToken });
+    await user.save();
 
     res.json({
-      accessToken: newAccessToken
+      success: true,
+      token: newAccessToken,
+      refreshToken: newRefreshToken,
+      user: {
+        _id: user._id,
+        name: user.name,
+        phone: user.phone,
+        role: user.role
+      }
     });
   } catch (error) {
     res.status(401).json({ message: 'Token refresh failed' });

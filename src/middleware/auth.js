@@ -10,24 +10,53 @@ const protect = async (req, res, next) => {
     }
 
     if (!token) {
-      return res.status(401).json({ message: 'Not authorized, no token' });
+      return res.status(401).json({ 
+        success: false,
+        message: 'Not authorized, no token' 
+      });
     }
 
     // Verify access token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = await User.findById(decoded.id).select('-password -refreshTokens');
+    req.user = await User.findById(decoded.userId).select('-password -refreshTokens');
     
     if (!req.user) {
-      return res.status(401).json({ message: 'User not found' });
+      return res.status(401).json({ 
+        success: false,
+        message: 'User not found' 
+      });
     }
+
+    // Attach userId and userRole for easy access in controllers
+    req.userId = decoded.userId;
+    req.userRole = decoded.role;
 
     next();
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ message: 'Access token expired, please refresh' });
+      return res.status(401).json({ 
+        success: false,
+        message: 'Access token expired, please refresh' 
+      });
     }
-    return res.status(401).json({ message: 'Not authorized, token failed' });
+    return res.status(401).json({ 
+      success: false,
+      message: 'Not authorized, token failed' 
+    });
   }
 };
 
-module.exports = { protect };
+// Role-based authorization middleware
+const authorize = (...roles) => {
+  return (req, res, next) => {
+    if (!req.userRole || !roles.includes(req.userRole)) {
+      return res.status(403).json({ 
+        success: false,
+        message: `Only ${roles.join('/')} can access this` 
+      });
+    }
+    next();
+  };
+};
+
+module.exports = { protect, authorize };
