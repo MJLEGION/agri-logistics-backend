@@ -23,6 +23,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/crops', require('./routes/cropRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes'));
+app.use('/api/payments', require('./routes/paymentRoutes'));
 
 // Root route
 app.get('/', (req, res) => {
@@ -32,7 +33,8 @@ app.get('/', (req, res) => {
     endpoints: {
       auth: '/api/auth',
       crops: '/api/crops',
-      orders: '/api/orders'
+      orders: '/api/orders',
+      payments: '/api/payments'
     }
   });
 });
