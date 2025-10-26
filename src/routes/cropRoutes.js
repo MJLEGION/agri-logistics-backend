@@ -19,6 +19,8 @@ router.route('/:id')
   .put(protect, authorize('farmer'), updateCrop)
   .delete(protect, authorize('farmer'), deleteCrop);
 
+// Endpoints for getting user's crops (both support the same controller)
+router.get('/user/:userId', getCropsByFarmer);
 router.get('/farmer/:farmerId', getCropsByFarmer);
 
 module.exports = router;

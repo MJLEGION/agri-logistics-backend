@@ -244,7 +244,7 @@ exports.acceptOrder = async (req, res) => {
 };
 
 // @desc    Get orders by user
-// @route   GET /api/orders/my-orders
+// @route   GET /api/orders/my-orders or /api/orders/user/:userId
 // @access  Private
 exports.getMyOrders = async (req, res) => {
   try {
@@ -268,6 +268,56 @@ exports.getMyOrders = async (req, res) => {
     res.json({
       success: true,
       data: orders
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false,
+      message: error.message 
+    });
+  }
+};
+
+// @desc    Delete order
+// @route   DELETE /api/orders/:id
+// @access  Private (Buyer or Farmer only)
+exports.deleteOrder = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Order not found' 
+      });
+    }
+
+    // Authorization: Only buyer or farmer can delete
+    const isAuthorized = 
+      req.userId.toString() === order.buyerId.toString() ||
+      req.userId.toString() === order.farmerId.toString();
+
+    if (!isAuthorized) {
+      return res.status(403).json({ 
+        success: false,
+        message: 'Not authorized to delete this order' 
+      });
+    }
+
+    // Restore crop quantity if order is not yet matched
+    if (order.status === 'accepted' && order.cropId) {
+      const crop = await Crop.findById(order.cropId);
+      if (crop) {
+        crop.quantity += order.quantity;
+        crop.status = 'listed';
+        await crop.save();
+      }
+    }
+
+    await Order.findByIdAndDelete(req.params.id);
+
+    res.json({
+      success: true,
+      message: 'Order deleted successfully'
     });
   } catch (error) {
     res.status(500).json({ 

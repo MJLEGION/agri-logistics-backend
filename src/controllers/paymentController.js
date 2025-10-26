@@ -107,17 +107,18 @@ exports.initiatePayment = async (req, res) => {
 };
 
 // @desc    Check Payment Status (Mock - Auto-completes after 5 seconds)
-// @route   GET /api/payments/flutterwave/status/:referenceId
+// @route   GET /api/payments/flutterwave/status/:referenceId or GET /api/payments/:id
 // @access  Private
 exports.checkPaymentStatus = async (req, res) => {
   try {
-    const { referenceId } = req.params;
+    // Support both old format (referenceId) and new format (id)
+    const referenceId = req.params.referenceId || req.params.id;
 
     if (!referenceId) {
       return res.status(400).json({
         success: false,
         status: 'failed',
-        message: 'Reference ID required',
+        message: 'Reference ID or transaction ID required',
       });
     }
 
@@ -202,16 +203,18 @@ exports.checkPaymentStatus = async (req, res) => {
 };
 
 // @desc    Verify Payment (Mock)
-// @route   POST /api/payments/flutterwave/verify
+// @route   POST /api/payments/flutterwave/verify or POST /api/payments/confirm
 // @access  Private
 exports.verifyPayment = async (req, res) => {
   try {
-    const { transactionId, referenceId } = req.body;
+    // Support both old format (transactionId, referenceId) and new format (transaction_id, order_id)
+    const transactionId = req.body.transactionId || req.body.transaction_id;
+    const referenceId = req.body.referenceId || req.body.order_id;
 
     if (!transactionId || !referenceId) {
       return res.status(400).json({
         success: false,
-        message: 'Transaction ID and Reference ID required',
+        message: 'Transaction ID and Reference ID (or order_id) required',
       });
     }
 

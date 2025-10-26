@@ -16,13 +16,14 @@ const {
  * Replace with real Flutterwave integration when you get live keys
  */
 
-// Initiate Payment
+// Standard API endpoints (matching integration guide)
+router.post('/initiate', protect, initiatePayment);
+router.get('/:id', protect, checkPaymentStatus);
+router.post('/confirm', protect, verifyPayment);
+
+// Legacy endpoints (backward compatibility)
 router.post('/flutterwave/initiate', protect, initiatePayment);
-
-// Check Payment Status
 router.get('/flutterwave/status/:referenceId', protect, checkPaymentStatus);
-
-// Verify Payment
 router.post('/flutterwave/verify', protect, verifyPayment);
 
 module.exports = router;
