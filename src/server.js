@@ -26,17 +26,29 @@ app.use('/api/orders', require('./routes/orderRoutes'));
 app.use('/api/transporters', require('./routes/transporterRoutes'));
 app.use('/api/payments', require('./routes/paymentRoutes'));
 
+// Payment Escrow System Routes
+app.use('/api/transactions', require('./routes/transactionRoutes'));
+app.use('/api/escrows', require('./routes/escrowRoutes'));
+app.use('/api/receipts', require('./routes/receiptRoutes'));
+app.use('/api/disputes', require('./routes/disputeRoutes'));
+app.use('/api/wallets', require('./routes/walletRoutes'));
+
 // Root route
 app.get('/', (req, res) => {
   res.json({ 
     message: 'Agri-Logistics API',
-    version: '1.0.0',
+    version: '2.0.0',
     endpoints: {
       auth: '/api/auth',
       crops: '/api/crops',
       orders: '/api/orders',
       transporters: '/api/transporters',
-      payments: '/api/payments'
+      payments: '/api/payments',
+      transactions: '/api/transactions (NEW)',
+      escrows: '/api/escrows (NEW)',
+      receipts: '/api/receipts (NEW)',
+      disputes: '/api/disputes (NEW)',
+      wallets: '/api/wallets (NEW)'
     }
   });
 });
