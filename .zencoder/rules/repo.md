@@ -1,13 +1,13 @@
 # Agri-Logistics Backend Repository Guide
 
-## 📋 Project Overview
+## Project Overview
 
 **Repository:** Agri-Logistics Backend API  
 **Technology Stack:** Node.js + Express + MongoDB + JWT  
 **API Port:** 5000  
 **Base URL:** `http://localhost:5000/api`
 
-## 🏗️ Project Structure
+## Project Structure
 
 ```
 src/
@@ -39,7 +39,7 @@ package.json                 # Dependencies
 .env                        # Environment variables
 ```
 
-## 🔌 API Endpoints
+## API Endpoints
 
 ### Authentication (`/api/auth`)
 
@@ -88,9 +88,51 @@ package.json                 # Dependencies
 - `POST /confirm` - Confirm payment (NEW)
 - `POST /flutterwave/verify` - Verify payment (legacy)
 
-## 🔄 Recent Updates (Alignment with Frontend Integration Guide)
+## Recent Updates (Alignment with Frontend Integration Guide)
 
-### ✅ Completed Fixes
+### Latest Addition: MTN MoMo Payment Integration ✨
+
+**Status:** ✅ Complete and Ready for Use
+
+**New Endpoints (v3.1.0):**
+
+- `POST /api/payments/momo/request` - Initiate MoMo payment
+- `GET /api/payments/momo/status/:referenceId` - Check payment status
+- `POST /api/payments/momo/confirm` - Confirm payment
+- `POST /api/payments/momo/payout` - Request payout to user
+- `POST /api/payments/momo/callback` - Webhook handler
+- `GET /api/payments/momo/config` - View configuration (admin)
+
+**Features:**
+
+- ✅ Mobile money payment collection
+- ✅ Payout/disbursement support
+- ✅ Automatic token management
+- ✅ Phone number auto-formatting
+- ✅ Webhook callback handling
+- ✅ Transaction tracking
+- ✅ Status monitoring
+
+**Documentation:**
+
+- `MOMO_SETUP_GUIDE.md` - Complete setup instructions
+- `MOMO_QUICK_TEST.md` - Quick 5-minute testing guide
+- `MOMO_IMPLEMENTATION_SUMMARY.md` - Technical details
+
+**Environment Variables Added:**
+
+```env
+MOMO_API_URL
+MOMO_API_KEY
+MOMO_USER_ID
+MOMO_PRIMARY_KEY
+MOMO_SECONDARY_KEY
+MOMO_CALLBACK_URL
+```
+
+---
+
+### Completed Fixes
 
 1. **Added Transporter Functionality**
 
@@ -117,7 +159,7 @@ package.json                 # Dependencies
    - Payment controller accepts both old and new parameter formats
    - Multiple endpoint aliases for better compatibility
 
-## 🔐 Authentication & Security
+## Authentication & Security
 
 - JWT tokens with 1-hour expiration
 - Refresh tokens with 7-day expiration
@@ -126,7 +168,7 @@ package.json                 # Dependencies
 - Password hashing with bcryptjs
 - Phone number validation (Nigerian & Rwandan formats)
 
-## 🗄️ Database Models
+## Database Models
 
 ### User
 
@@ -159,7 +201,7 @@ package.json                 # Dependencies
 - phoneNumber, amount, currency, paymentMethod
 - status, metadata
 
-## 📝 Environment Variables
+## Environment Variables
 
 Create a `.env` file with:
 
@@ -171,7 +213,7 @@ PORT=5000
 NODE_ENV=development
 ```
 
-## 🧪 Testing the API
+## Testing the API
 
 ### Quick Health Check
 
@@ -215,7 +257,7 @@ curl -X POST http://localhost:5000/api/transporters/profile/me \
   -d '{"vehicle_type":"truck","capacity":5000,"rates":50000}'
 ```
 
-## 🚀 Running the Server
+## Running the Server
 
 ```bash
 # Development (with nodemon)
@@ -225,7 +267,7 @@ npm run dev
 npm start
 ```
 
-## ⚠️ Known Issues & Notes
+## Known Issues & Notes
 
 1. **Payment System**: Currently uses mock implementation for demo purposes. Integrate with real Flutterwave API for production.
 
@@ -235,7 +277,7 @@ npm start
 
 4. **Token Blacklist**: Currently uses in-memory Set for demo. Use Redis in production.
 
-## 🔍 Validation & Data Requirements
+## Validation & Data Requirements
 
 ### User Registration
 
@@ -261,7 +303,7 @@ npm start
 - capacity: Positive number
 - rates: Positive number
 
-## 📞 Support & Debugging
+## Support & Debugging
 
 1. Check backend logs for errors
 2. Use MongoDB Compass to inspect database
@@ -269,7 +311,7 @@ npm start
 4. Verify JWT token expiration
 5. Check CORS configuration
 
-## 🔗 Integration with Frontend
+## Integration with Frontend
 
 The backend is designed to work with the Agri-Logistics frontend. See the integration guide for:
 

@@ -286,7 +286,7 @@ Body: {
 
 ---
 
-## 🧪 Quick Testing Checklist
+## Quick Testing Checklist
 
 - [ ] **Auth**:
 

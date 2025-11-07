@@ -1,325 +1,469 @@
 const Wallet = require('../models/wallet');
 const User = require('../models/user');
+const Transaction = require('../models/transaction');
+const logger = require('../config/logger');
 
 /**
- * Get or create wallet for a user
+ * WALLET CONTROLLER
+ * Handles user wallets, balance, and transactions
  */
-exports.getOrCreateWallet = async (req, res) => {
-  try {
-    const userId = req.user.id;
 
-    let wallet = await Wallet.findOne({ userId });
+// @desc    Get wallet balance
+// @route   GET /api/wallet
+// @access  Private
+exports.getBalance = async (req, res) => {
+  try {
+    let wallet = await Wallet.findOne({ userId: req.user.id });
 
     if (!wallet) {
-      // Create wallet if doesn't exist
-      wallet = new Wallet({
-        userId,
-        balance: 0,
-        currency: 'RWF',
-        status: 'active'
-      });
+      // Create wallet if it doesn't exist
+      wallet = new Wallet({ userId: req.user.id });
       await wallet.save();
     }
 
-    res.status(200).json({
+    res.json({
       success: true,
-      data: wallet
+      data: {
+        balance: wallet.balance,
+        currency: wallet.currency,
+        totalEarned: wallet.totalEarned,
+        totalSpent: wallet.totalSpent,
+        totalRefunded: wallet.totalRefunded,
+        status: wallet.status,
+      },
     });
   } catch (error) {
-    console.error('Error getting wallet:', error);
     res.status(500).json({
       success: false,
-      message: error.message || 'Error getting wallet'
+      error: error.message,
     });
   }
 };
 
-/**
- * Get wallet by user ID
- */
-exports.getWalletById = async (req, res) => {
+// @desc    Get full wallet details
+// @route   GET /api/wallet/details
+// @access  Private
+exports.getDetails = async (req, res) => {
   try {
-    const { userId } = req.params;
-
-    const wallet = await Wallet.findOne({ userId });
+    let wallet = await Wallet.findOne({ userId: req.user.id });
 
     if (!wallet) {
-      return res.status(404).json({ message: 'Wallet not found' });
+      wallet = new Wallet({ userId: req.user.id });
+      await wallet.save();
     }
 
-    res.status(200).json({
+    const user = await User.findById(req.user.id);
+
+    res.json({
       success: true,
-      data: wallet
+      data: {
+        user: {
+          id: user._id,
+          name: user.name,
+          phone: user.phone,
+        },
+        wallet: {
+          balance: wallet.balance,
+          currency: wallet.currency,
+          totalEarned: wallet.totalEarned,
+          totalSpent: wallet.totalSpent,
+          totalRefunded: wallet.totalRefunded,
+          status: wallet.status,
+          kycVerified: wallet.kycVerified,
+          kycVerifiedAt: wallet.kycVerifiedAt,
+        },
+        linkedAccounts: {
+          momoPhoneNumber: wallet.momoPhoneNumber || 'Not linked',
+          airtelPhoneNumber: wallet.airtelPhoneNumber || 'Not linked',
+          bankAccount: wallet.bankAccount || 'Not linked',
+        },
+      },
     });
   } catch (error) {
-    console.error('Error getting wallet:', error);
     res.status(500).json({
       success: false,
-      message: error.message || 'Error getting wallet'
+      error: error.message,
     });
   }
 };
 
-/**
- * Update wallet payment info
- */
-exports.updateWalletPaymentInfo = async (req, res) => {
+// @desc    Add funds to wallet
+// @route   POST /api/wallet/topup
+// @access  Private
+exports.topUp = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { momoPhoneNumber, airtelPhoneNumber, bankAccount } = req.body;
-
-    let wallet = await Wallet.findOne({ userId });
-
-    if (!wallet) {
-      wallet = new Wallet({ userId });
-    }
-
-    if (momoPhoneNumber) wallet.momoPhoneNumber = momoPhoneNumber;
-    if (airtelPhoneNumber) wallet.airtelPhoneNumber = airtelPhoneNumber;
-    if (bankAccount) wallet.bankAccount = bankAccount;
-
-    await wallet.save();
-
-    res.status(200).json({
-      success: true,
-      message: 'Wallet payment info updated',
-      data: wallet
-    });
-  } catch (error) {
-    console.error('Error updating wallet:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Error updating wallet'
-    });
-  }
-};
-
-/**
- * Add funds to wallet (mock implementation)
- */
-exports.addFunds = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { amount, paymentMethod, reference } = req.body;
+    const { amount, paymentMethod } = req.body;
 
     if (!amount || amount <= 0) {
-      return res.status(400).json({ message: 'Invalid amount' });
+      return res.status(400).json({
+        success: false,
+        error: 'Amount must be positive',
+      });
     }
 
-    let wallet = await Wallet.findOne({ userId });
+    let wallet = await Wallet.findOne({ userId: req.user.id });
 
     if (!wallet) {
-      wallet = new Wallet({ userId });
+      wallet = new Wallet({ userId: req.user.id });
     }
 
+    // Create transaction record
+    const transaction = new Transaction({
+      farmerId: req.user.id,
+      orderId: null,
+      cargoDescription: `Wallet top-up: ${amount} ${wallet.currency}`,
+      pickupLocation: 'Wallet',
+      dropoffLocation: 'Wallet',
+      pickupTime: new Date(),
+      estimatedDeliveryTime: new Date(),
+      amount,
+      currency: wallet.currency,
+      paymentMethod,
+      status: 'PAYMENT_CONFIRMED',
+      metadata: {
+        type: 'topup',
+        topupDate: new Date(),
+      },
+    });
+
+    await transaction.save();
+
+    // Update wallet
     wallet.balance += amount;
     wallet.totalEarned += amount;
     await wallet.save();
 
-    res.status(200).json({
+    logger.info(`Wallet top-up: ${req.user.id} - Amount: ${amount}`);
+
+    res.json({
       success: true,
-      message: 'Funds added successfully',
       data: {
-        wallet,
-        transaction: {
-          amount,
-          type: 'credit',
-          paymentMethod,
-          reference,
-          timestamp: new Date()
-        }
-      }
+        balance: wallet.balance,
+        amount,
+        transactionId: transaction._id,
+      },
+      message: `Wallet topped up with ${amount} ${wallet.currency}`,
     });
   } catch (error) {
-    console.error('Error adding funds:', error);
+    logger.error('Error in wallet top-up:', error);
     res.status(500).json({
       success: false,
-      message: error.message || 'Error adding funds'
+      error: error.message,
     });
   }
 };
 
-/**
- * Withdraw funds from wallet
- */
-exports.withdrawFunds = async (req, res) => {
+// @desc    Withdraw from wallet
+// @route   POST /api/wallet/withdraw
+// @access  Private
+exports.withdraw = async (req, res) => {
   try {
-    const userId = req.user.id;
     const { amount, paymentMethod } = req.body;
 
     if (!amount || amount <= 0) {
-      return res.status(400).json({ message: 'Invalid amount' });
+      return res.status(400).json({
+        success: false,
+        error: 'Amount must be positive',
+      });
     }
 
-    const wallet = await Wallet.findOne({ userId });
+    let wallet = await Wallet.findOne({ userId: req.user.id });
 
     if (!wallet) {
-      return res.status(404).json({ message: 'Wallet not found' });
+      return res.status(400).json({
+        success: false,
+        error: 'Wallet not found',
+      });
     }
 
     if (wallet.balance < amount) {
-      return res.status(400).json({ message: 'Insufficient balance' });
+      return res.status(400).json({
+        success: false,
+        error: 'Insufficient balance',
+      });
     }
 
+    if (wallet.status !== 'active') {
+      return res.status(400).json({
+        success: false,
+        error: `Wallet is ${wallet.status}. Cannot withdraw.`,
+      });
+    }
+
+    // Verify KYC
+    if (!wallet.kycVerified) {
+      return res.status(400).json({
+        success: false,
+        error: 'KYC verification required to withdraw',
+      });
+    }
+
+    // Create withdrawal transaction
+    const transaction = new Transaction({
+      transporterId: req.user.id,
+      orderId: null,
+      cargoDescription: `Wallet withdrawal: ${amount} ${wallet.currency}`,
+      pickupLocation: 'Wallet',
+      dropoffLocation: 'Bank Account',
+      pickupTime: new Date(),
+      estimatedDeliveryTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      amount,
+      currency: wallet.currency,
+      paymentMethod,
+      status: 'PAYMENT_PROCESSING',
+      metadata: {
+        type: 'withdrawal',
+        withdrawalDate: new Date(),
+        status: 'pending',
+      },
+    });
+
+    await transaction.save();
+
+    // Deduct from wallet (hold until confirmation)
     wallet.balance -= amount;
     wallet.totalSpent += amount;
     await wallet.save();
 
-    res.status(200).json({
+    logger.info(`Wallet withdrawal requested: ${req.user.id} - Amount: ${amount}`);
+
+    res.json({
       success: true,
-      message: 'Funds withdrawn successfully',
       data: {
-        wallet,
-        transaction: {
-          amount,
-          type: 'debit',
-          paymentMethod,
-          timestamp: new Date()
-        }
-      }
+        balance: wallet.balance,
+        amount,
+        transactionId: transaction._id,
+        status: 'pending',
+      },
+      message: `Withdrawal of ${amount} ${wallet.currency} requested. Funds will appear in your account within 24-48 hours.`,
     });
   } catch (error) {
-    console.error('Error withdrawing funds:', error);
+    logger.error('Error in wallet withdrawal:', error);
     res.status(500).json({
       success: false,
-      message: error.message || 'Error withdrawing funds'
+      error: error.message,
     });
   }
 };
 
-/**
- * Get wallet statement
- */
-exports.getWalletStatement = async (req, res) => {
+// @desc    Link payment method
+// @route   POST /api/wallet/link-payment
+// @access  Private
+exports.linkPaymentMethod = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const wallet = await Wallet.findOne({ userId });
+    const { paymentMethod, phoneNumber, accountNumber } = req.body;
 
-    if (!wallet) {
-      return res.status(404).json({ message: 'Wallet not found' });
+    if (!paymentMethod || (!phoneNumber && !accountNumber)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Payment method and phone or account number required',
+      });
     }
 
-    const statement = {
-      balance: wallet.balance,
-      currency: wallet.currency,
-      totalEarned: wallet.totalEarned,
-      totalSpent: wallet.totalSpent,
-      totalRefunded: wallet.totalRefunded,
-      net: wallet.totalEarned - wallet.totalSpent + wallet.totalRefunded,
-      status: wallet.status,
-      linkedAccounts: {
-        momo: wallet.momoPhoneNumber ? '****' + wallet.momoPhoneNumber.slice(-4) : null,
-        airtel: wallet.airtelPhoneNumber ? '****' + wallet.airtelPhoneNumber.slice(-4) : null,
-        bank: wallet.bankAccount ? '****' + wallet.bankAccount.slice(-4) : null
-      }
-    };
-
-    res.status(200).json({
-      success: true,
-      data: statement
-    });
-  } catch (error) {
-    console.error('Error getting statement:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Error getting statement'
-    });
-  }
-};
-
-/**
- * Verify KYC (mock)
- */
-exports.verifyKYC = async (req, res) => {
-  try {
-    const userId = req.user.id;
-
-    const wallet = await Wallet.findOne({ userId });
+    let wallet = await Wallet.findOne({ userId: req.user.id });
 
     if (!wallet) {
-      return res.status(404).json({ message: 'Wallet not found' });
+      wallet = new Wallet({ userId: req.user.id });
     }
 
-    wallet.kycVerified = true;
-    wallet.kycVerifiedAt = new Date();
+    switch (paymentMethod) {
+      case 'momo':
+        wallet.momoPhoneNumber = phoneNumber;
+        break;
+      case 'airtel':
+        wallet.airtelPhoneNumber = phoneNumber;
+        break;
+      case 'bank':
+        wallet.bankAccount = accountNumber;
+        break;
+      default:
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid payment method',
+        });
+    }
+
     await wallet.save();
 
-    res.status(200).json({
+    logger.info(`Payment method linked: ${req.user.id} - Method: ${paymentMethod}`);
+
+    res.json({
       success: true,
-      message: 'KYC verification completed',
-      data: wallet
+      data: wallet,
+      message: `${paymentMethod} account linked successfully`,
     });
   } catch (error) {
-    console.error('Error verifying KYC:', error);
+    logger.error('Error linking payment method:', error);
     res.status(500).json({
       success: false,
-      message: error.message || 'Error verifying KYC'
+      error: error.message,
     });
   }
 };
 
-/**
- * Freeze wallet (admin)
- */
-exports.freezeWallet = async (req, res) => {
+// @desc    Verify KYC
+// @route   POST /api/wallet/verify-kyc
+// @access  Private
+exports.verifyKYC = async (req, res) => {
   try {
-    const { userId } = req.params;
-    const { reason } = req.body;
+    const { documentType, documentNumber } = req.body;
 
-    const wallet = await Wallet.findOne({ userId });
+    if (!documentType || !documentNumber) {
+      return res.status(400).json({
+        success: false,
+        error: 'Document type and number required',
+      });
+    }
+
+    let wallet = await Wallet.findOne({ userId: req.user.id });
 
     if (!wallet) {
-      return res.status(404).json({ message: 'Wallet not found' });
+      wallet = new Wallet({ userId: req.user.id });
+    }
+
+    // In production, verify with actual KYC provider
+    wallet.kycVerified = true;
+    wallet.kycVerifiedAt = new Date();
+    wallet.metadata = wallet.metadata || {};
+    wallet.metadata.documentType = documentType;
+    wallet.metadata.documentNumber = documentNumber;
+
+    await wallet.save();
+
+    logger.info(`KYC verified: ${req.user.id}`);
+
+    res.json({
+      success: true,
+      data: wallet,
+      message: 'KYC verification completed successfully',
+    });
+  } catch (error) {
+    logger.error('Error verifying KYC:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get transaction history
+// @route   GET /api/wallet/transactions
+// @access  Private
+exports.getTransactionHistory = async (req, res) => {
+  try {
+    const { page = 1, limit = 20, type } = req.query;
+
+    const filter = {
+      $or: [{ farmerId: req.user.id }, { transporterId: req.user.id }],
+    };
+
+    if (type === 'topup') {
+      filter['metadata.type'] = 'topup';
+    } else if (type === 'withdrawal') {
+      filter['metadata.type'] = 'withdrawal';
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const transactions = await Transaction.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Transaction.countDocuments(filter);
+
+    res.json({
+      success: true,
+      data: transactions,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(total / parseInt(limit)),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Freeze wallet (Admin only)
+// @route   PUT /api/wallet/:userId/freeze
+// @access  Private (Admin only)
+exports.freezeWallet = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Only admins can freeze wallets',
+      });
+    }
+
+    const wallet = await Wallet.findOne({ userId: req.params.userId });
+
+    if (!wallet) {
+      return res.status(404).json({
+        success: false,
+        error: 'Wallet not found',
+      });
     }
 
     wallet.status = 'frozen';
-    wallet.metadata = {
-      ...wallet.metadata,
-      frozenReason: reason,
-      frozenAt: new Date()
-    };
     await wallet.save();
 
-    res.status(200).json({
+    logger.info(`Wallet frozen: ${req.params.userId}`);
+
+    res.json({
       success: true,
-      message: 'Wallet frozen successfully',
-      data: wallet
+      data: wallet,
+      message: 'Wallet frozen',
     });
   } catch (error) {
-    console.error('Error freezing wallet:', error);
     res.status(500).json({
       success: false,
-      message: error.message || 'Error freezing wallet'
+      error: error.message,
     });
   }
 };
 
-/**
- * Unfreeze wallet (admin)
- */
+// @desc    Unfreeze wallet (Admin only)
+// @route   PUT /api/wallet/:userId/unfreeze
+// @access  Private (Admin only)
 exports.unfreezeWallet = async (req, res) => {
   try {
-    const { userId } = req.params;
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Only admins can unfreeze wallets',
+      });
+    }
 
-    const wallet = await Wallet.findOne({ userId });
+    const wallet = await Wallet.findOne({ userId: req.params.userId });
 
     if (!wallet) {
-      return res.status(404).json({ message: 'Wallet not found' });
+      return res.status(404).json({
+        success: false,
+        error: 'Wallet not found',
+      });
     }
 
     wallet.status = 'active';
     await wallet.save();
 
-    res.status(200).json({
+    logger.info(`Wallet unfrozen: ${req.params.userId}`);
+
+    res.json({
       success: true,
-      message: 'Wallet unfrozen successfully',
-      data: wallet
+      data: wallet,
+      message: 'Wallet unfrozen',
     });
   } catch (error) {
-    console.error('Error unfreezing wallet:', error);
     res.status(500).json({
       success: false,
-      message: error.message || 'Error unfreezing wallet'
+      error: error.message,
     });
   }
 };

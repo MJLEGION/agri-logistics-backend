@@ -1,27 +1,27 @@
 const express = require('express');
 const router = express.Router();
 const transactionController = require('../controllers/transactionController');
-const auth = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 
 // POST routes
-router.post('/initiate', auth, transactionController.initiatePayment);
+router.post('/initiate', protect, transactionController.initiatePayment);
 
 // GET routes - specific routes before generic /:id route
-router.get('/my-transactions', auth, transactionController.getMyTransactions);
-router.get('/stats', auth, transactionController.getTransactionStats);
+router.get('/my-transactions', protect, transactionController.getMyTransactions);
+router.get('/stats', protect, transactionController.getTransactionStats);
 
 // GET all transactions (admin)
-router.get('/', auth, transactionController.getAllTransactions);
+router.get('/', protect, transactionController.getAllTransactions);
 
 // POST routes for specific transaction operations
-router.post('/:transactionId/process', auth, transactionController.processPayment);
-router.post('/:transactionId/confirm', auth, transactionController.confirmPayment);
-router.post('/:transactionId/cancel', auth, transactionController.cancelPayment);
+router.post('/:transactionId/process', protect, transactionController.processPayment);
+router.post('/:transactionId/confirm', protect, transactionController.confirmPayment);
+router.post('/:transactionId/cancel', protect, transactionController.cancelPayment);
 
 // GET transaction by ID
-router.get('/:transactionId', auth, transactionController.getTransactionById);
+router.get('/:transactionId', protect, transactionController.getTransactionById);
 
 // PUT routes
-router.put('/:transactionId/status', auth, transactionController.updateTransactionStatus);
+router.put('/:transactionId/status', protect, transactionController.updateTransactionStatus);
 
 module.exports = router;

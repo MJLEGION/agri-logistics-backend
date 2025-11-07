@@ -297,7 +297,7 @@ Verification checklist:
 
 ---
 
-## 🧪 Testing Ready
+## Testing Ready
 
 Everything is ready to test:
 

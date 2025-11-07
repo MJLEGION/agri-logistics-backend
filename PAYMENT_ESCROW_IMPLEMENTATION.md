@@ -743,7 +743,7 @@ All models have been indexed for performance:
 
 ---
 
-## 🧪 Testing Examples
+## Testing Examples
 
 ### Using cURL
 

@@ -403,7 +403,7 @@ Use this checklist to verify that the Payment Escrow System has been properly im
 
 ---
 
-## 🧪 Testing Verification
+## Testing Verification
 
 ### Payment Flow Test
 

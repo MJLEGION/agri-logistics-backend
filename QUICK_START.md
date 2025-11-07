@@ -95,7 +95,7 @@ If you see this, you're good to go! ✅
 
 ---
 
-## 🧪 Step 4: Quick Test (1 min)
+## Step 4: Quick Test (1 min)
 
 ### Test 1: Register a User
 

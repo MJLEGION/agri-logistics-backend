@@ -1,274 +1,470 @@
-const ratingService = require('../services/ratingService');
 const Rating = require('../models/rating');
-const TransporterStats = require('../models/transporterStats');
+const Review = require('../models/review');
+const Transporter = require('../models/transporter');
+const Order = require('../models/order');
+const User = require('../models/user');
+const logger = require('../config/logger');
 
 /**
- * Create a rating
+ * RATING CONTROLLER
+ * Handles ratings and reviews for transporters and users
  */
+
+// @desc    Create rating
+// @route   POST /api/ratings
+// @access  Private
 exports.createRating = async (req, res) => {
   try {
-    const { transactionId, transporterId, rating, comment } = req.body;
-    const farmerId = req.user.id;
-    const farmerName = req.user.name;
+    const {
+      ratedUserId,
+      tripId,
+      rating,
+      comment,
+      cleanliness,
+      professionalism,
+      timeliness,
+      communication,
+    } = req.body;
 
     // Validation
-    if (!rating || rating < 1 || rating > 5) {
+    if (!ratedUserId || !rating) {
       return res.status(400).json({
         success: false,
-        error: 'Rating must be between 1 and 5',
-        code: 'INVALID_RATING',
+        error: 'Rated user ID and rating score required',
       });
     }
 
-    if (comment && comment.length > 1000) {
+    if (rating < 1 || rating > 5) {
       return res.status(400).json({
         success: false,
-        error: 'Comment cannot exceed 1000 characters',
-        code: 'COMMENT_TOO_LONG',
+        error: 'Rating must be between 1 and 5',
+      });
+    }
+
+    // Verify trip exists if provided
+    if (tripId) {
+      const trip = await Order.findById(tripId);
+      if (!trip) {
+        return res.status(404).json({
+          success: false,
+          error: 'Trip not found',
+        });
+      }
+
+      // Verify trip is completed
+      if (trip.status !== 'completed') {
+        return res.status(400).json({
+          success: false,
+          error: 'Can only rate completed trips',
+        });
+      }
+    }
+
+    // Check if user already rated this transporter for this trip
+    const existingRating = await Rating.findOne({
+      ratedUserId,
+      ratingUserId: req.user.id,
+      tripId,
+    });
+
+    if (existingRating) {
+      return res.status(400).json({
+        success: false,
+        error: 'You have already rated this transporter for this trip',
       });
     }
 
     // Create rating
-    const newRating = await ratingService.createRating(
-      transactionId,
-      transporterId,
-      farmerId,
-      farmerName,
+    const newRating = new Rating({
+      ratedUserId,
+      ratingUserId: req.user.id,
+      tripId,
       rating,
-      comment
-    );
+      comment: comment || '',
+      cleanliness: cleanliness || rating,
+      professionalism: professionalism || rating,
+      timeliness: timeliness || rating,
+      communication: communication || rating,
+    });
 
-    // Get updated stats
-    const stats = await ratingService.getTransporterStats(transporterId);
+    await newRating.save();
+
+    // Update transporter average rating
+    await updateTransporterRating(ratedUserId);
+
+    logger.info(`Rating created: ${newRating._id} for user ${ratedUserId}`);
 
     res.status(201).json({
       success: true,
-      data: {
-        ratingId: newRating._id,
-        transactionId: newRating.transactionId,
-        transporterId: newRating.transporterId,
-        rating: newRating.rating,
-        comment: newRating.comment,
-        sentiment: newRating.sentiment,
-        created: true,
-        verificationUpdated: !!stats.verifiedBadgeType,
-        newVerificationStatus: {
-          isVerified: stats.isVerified,
-          badgeType: stats.verifiedBadgeType,
-          reason: stats.isVerified
-            ? `${stats.verifiedBadgeType.toUpperCase()} badge awarded`
-            : null,
-        },
-      },
+      data: await newRating.populate('ratingUserId', 'name phone'),
+      message: 'Rating submitted successfully',
     });
   } catch (error) {
-    if (error.message === 'DUPLICATE_RATING') {
-      return res.status(400).json({
-        success: false,
-        error: 'Rating already exists for this transaction',
-        code: 'DUPLICATE_RATING',
-      });
-    }
-
+    logger.error('Error creating rating:', error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Error creating rating',
+      error: error.message,
     });
   }
 };
 
-/**
- * Get transporter stats (public)
- */
+// @desc    Get ratings for user
+// @route   GET /api/ratings/user/:userId
+// @access  Public
+exports.getUserRatings = async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const ratings = await Rating.find({ ratedUserId: req.params.userId })
+      .populate('ratingUserId', 'name phone role')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Rating.countDocuments({ ratedUserId: req.params.userId });
+
+    // Calculate statistics
+    const stats = await Rating.aggregate([
+      { $match: { ratedUserId: req.params.userId } },
+      {
+        $group: {
+          _id: null,
+          avgRating: { $avg: '$rating' },
+          avgCleanliness: { $avg: '$cleanliness' },
+          avgProfessionalism: { $avg: '$professionalism' },
+          avgTimeliness: { $avg: '$timeliness' },
+          avgCommunication: { $avg: '$communication' },
+          totalRatings: { $sum: 1 },
+        },
+      },
+    ]);
+
+    res.json({
+      success: true,
+      data: ratings,
+      stats: stats[0] || {
+        avgRating: 0,
+        avgCleanliness: 0,
+        avgProfessionalism: 0,
+        avgTimeliness: 0,
+        avgCommunication: 0,
+        totalRatings: 0,
+      },
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(total / parseInt(limit)),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get transporter ratings and stats
+// @route   GET /api/ratings/transporter/:transporterId/stats
+// @access  Public
 exports.getTransporterStats = async (req, res) => {
   try {
     const { transporterId } = req.params;
 
-    const stats = await ratingService.getTransporterStats(transporterId);
-
-    if (!stats) {
+    // Get user info
+    const user = await User.findById(transporterId);
+    if (!user) {
       return res.status(404).json({
         success: false,
         error: 'Transporter not found',
       });
     }
 
-    res.json({
-      success: true,
-      data: {
-        transporterId: stats.transporterId,
-        averageRating: stats.averageRating,
-        totalRatings: stats.totalRatings,
-        ratingDistribution: stats.ratingDistribution,
-        onTimePercentage: stats.onTimePercentage,
-        completionPercentage: stats.completionPercentage,
-        totalDeliveries: stats.totalDeliveries,
-        isVerified: stats.isVerified,
-        verifiedBadge: stats.isVerified
-          ? {
-              badgeType: stats.verifiedBadgeType,
-              earnedDate: stats.verifiedDate,
-            }
-          : null,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Error fetching stats',
-    });
-  }
-};
+    // Get transporter profile
+    const transporter = await Transporter.findOne({ userId: transporterId });
 
-/**
- * Get all transporter ratings
- */
-exports.getTransporterRatings = async (req, res) => {
-  try {
-    const { transporterId } = req.params;
-    const { limit = 10, skip = 0 } = req.query;
-
-    const { ratings, total } = await ratingService.getTransporterRatings(
-      transporterId,
-      Math.min(parseInt(limit), 50),
-      parseInt(skip)
-    );
-
-    res.json({
-      success: true,
-      data: {
-        ratings,
-        pagination: {
-          total,
-          limit: parseInt(limit),
-          skip: parseInt(skip),
+    // Get ratings stats
+    const stats = await Rating.aggregate([
+      { $match: { ratedUserId: transporterId } },
+      {
+        $group: {
+          _id: null,
+          avgRating: { $avg: '$rating' },
+          avgCleanliness: { $avg: '$cleanliness' },
+          avgProfessionalism: { $avg: '$professionalism' },
+          avgTimeliness: { $avg: '$timeliness' },
+          avgCommunication: { $avg: '$communication' },
+          totalRatings: { $sum: 1 },
+          fiveStarCount: {
+            $sum: { $cond: [{ $eq: ['$rating', 5] }, 1, 0] },
+          },
+          fourStarCount: {
+            $sum: { $cond: [{ $eq: ['$rating', 4] }, 1, 0] },
+          },
+          threeStarCount: {
+            $sum: { $cond: [{ $eq: ['$rating', 3] }, 1, 0] },
+          },
+          twoStarCount: {
+            $sum: { $cond: [{ $eq: ['$rating', 2] }, 1, 0] },
+          },
+          oneStarCount: {
+            $sum: { $cond: [{ $eq: ['$rating', 1] }, 1, 0] },
+          },
         },
       },
+    ]);
+
+    const ratingStats = stats[0] || {
+      avgRating: 0,
+      avgCleanliness: 0,
+      avgProfessionalism: 0,
+      avgTimeliness: 0,
+      avgCommunication: 0,
+      totalRatings: 0,
+      fiveStarCount: 0,
+      fourStarCount: 0,
+      threeStarCount: 0,
+      twoStarCount: 0,
+      oneStarCount: 0,
+    };
+
+    res.json({
+      success: true,
+      data: {
+        user: {
+          id: user._id,
+          name: user.name,
+          phone: user.phone,
+          role: user.role,
+        },
+        transporter: transporter || null,
+        ratings: {
+          average: parseFloat(ratingStats.avgRating.toFixed(2)),
+          total: ratingStats.totalRatings,
+          breakdown: {
+            fiveStar: ratingStats.fiveStarCount,
+            fourStar: ratingStats.fourStarCount,
+            threeStar: ratingStats.threeStarCount,
+            twoStar: ratingStats.twoStarCount,
+            oneStar: ratingStats.oneStarCount,
+          },
+          categories: {
+            cleanliness: parseFloat(ratingStats.avgCleanliness.toFixed(2)),
+            professionalism: parseFloat(ratingStats.avgProfessionalism.toFixed(2)),
+            timeliness: parseFloat(ratingStats.avgTimeliness.toFixed(2)),
+            communication: parseFloat(ratingStats.avgCommunication.toFixed(2)),
+          },
+        },
+        completedTrips: transporter?.completedDeliveries || 0,
+      },
     });
   } catch (error) {
+    logger.error('Error fetching transporter stats:', error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Error fetching ratings',
+      error: error.message,
     });
   }
 };
 
-/**
- * Get rating by ID
- */
-exports.getRatingById = async (req, res) => {
+// @desc    Get top rated transporters
+// @route   GET /api/ratings/leaderboard
+// @access  Public
+exports.getLeaderboard = async (req, res) => {
   try {
-    const { ratingId } = req.params;
+    const { limit = 10, period } = req.query;
 
-    const rating = await ratingService.getRatingById(ratingId);
+    const topTransporters = await Rating.aggregate([
+      {
+        $group: {
+          _id: '$ratedUserId',
+          avgRating: { $avg: '$rating' },
+          totalRatings: { $sum: 1 },
+        },
+      },
+      { $match: { totalRatings: { $gte: 5 } } }, // At least 5 ratings
+      { $sort: { avgRating: -1 } },
+      { $limit: parseInt(limit) },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'user',
+        },
+      },
+      {
+        $lookup: {
+          from: 'transporters',
+          localField: '_id',
+          foreignField: 'userId',
+          as: 'transporter',
+        },
+      },
+    ]);
 
-    if (!rating) {
+    res.json({
+      success: true,
+      data: topTransporters.map((t) => ({
+        userId: t._id,
+        name: t.user[0]?.name || 'Unknown',
+        phone: t.user[0]?.phone || '',
+        rating: parseFloat(t.avgRating.toFixed(2)),
+        totalRatings: t.totalRatings,
+        vehicleType: t.transporter[0]?.vehicle_type || '',
+        completedTrips: t.transporter[0]?.completedDeliveries || 0,
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get reviews for transporter
+// @route   GET /api/ratings/:userId/reviews
+// @access  Public
+exports.getTransporterReviews = async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const reviews = await Rating.find({ ratedUserId: req.params.userId })
+      .populate('ratingUserId', 'name phone')
+      .select('-__v')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Rating.countDocuments({ ratedUserId: req.params.userId });
+
+    res.json({
+      success: true,
+      data: reviews,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(total / parseInt(limit)),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Update rating (owner only)
+// @route   PUT /api/ratings/:id
+// @access  Private
+exports.updateRating = async (req, res) => {
+  try {
+    const { comment, rating } = req.body;
+
+    const ratingDoc = await Rating.findById(req.params.id);
+
+    if (!ratingDoc) {
       return res.status(404).json({
         success: false,
         error: 'Rating not found',
       });
     }
 
+    if (ratingDoc.ratingUserId.toString() !== req.user.id.toString()) {
+      return res.status(403).json({
+        success: false,
+        error: 'Not authorized to update this rating',
+      });
+    }
+
+    if (comment) ratingDoc.comment = comment;
+    if (rating) ratingDoc.rating = rating;
+
+    await ratingDoc.save();
+
+    logger.info(`Rating updated: ${req.params.id}`);
+
     res.json({
       success: true,
-      data: rating,
+      data: ratingDoc,
+      message: 'Rating updated successfully',
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: error.message || 'Error fetching rating',
+      error: error.message,
     });
   }
 };
 
-/**
- * Mark rating as helpful
- */
-exports.markAsHelpful = async (req, res) => {
+// @desc    Delete rating
+// @route   DELETE /api/ratings/:id
+// @access  Private (Owner or Admin)
+exports.deleteRating = async (req, res) => {
   try {
-    const { ratingId } = req.params;
-    const { isHelpful } = req.body;
-    const userId = req.user.id;
+    const ratingDoc = await Rating.findById(req.params.id);
 
-    const rating = await Rating.findById(ratingId);
-    if (!rating) {
+    if (!ratingDoc) {
       return res.status(404).json({
         success: false,
         error: 'Rating not found',
       });
     }
 
-    if (isHelpful) {
-      if (!rating.helpfulUsers) {
-        rating.helpfulUsers = [];
-      }
-      if (!rating.helpfulUsers.includes(userId)) {
-        rating.helpfulUsers.push(userId);
-        rating.helpfulCount = rating.helpfulUsers.length;
-      }
-    } else {
-      if (!rating.unhelpfulUsers) {
-        rating.unhelpfulUsers = [];
-      }
-      if (!rating.unhelpfulUsers.includes(userId)) {
-        rating.unhelpfulUsers.push(userId);
-        rating.unhelpfulCount = rating.unhelpfulUsers.length;
-      }
-    }
-
-    await rating.save();
-
-    res.json({
-      success: true,
-      data: {
-        ratingId: rating._id,
-        helpfulCount: rating.helpfulCount,
-        unhelpfulCount: rating.unhelpfulCount,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Error marking rating as helpful',
-    });
-  }
-};
-
-/**
- * Get rating statistics
- */
-exports.getRatingStats = async (req, res) => {
-  try {
-    const { transporterId } = req.params;
-
-    const stats = await TransporterStats.findOne({ transporterId });
-
-    if (!stats) {
-      return res.status(404).json({
+    if (
+      ratingDoc.ratingUserId.toString() !== req.user.id.toString() &&
+      req.user.role !== 'admin'
+    ) {
+      return res.status(403).json({
         success: false,
-        error: 'Transporter stats not found',
+        error: 'Not authorized to delete this rating',
       });
     }
 
-    const ratings = await Rating.find({ transporterId });
+    await Rating.findByIdAndDelete(req.params.id);
+
+    logger.info(`Rating deleted: ${req.params.id}`);
 
     res.json({
       success: true,
-      data: {
-        totalRatings: stats.totalRatings,
-        averageRating: parseFloat(stats.averageRating),
-        ratingDistribution: stats.ratingDistribution,
-        reputationScore: stats.reputationScore,
-        totalReviewCount: ratings.length,
-        isVerified: stats.isVerified,
-        verifiedBadge: stats.verifiedBadgeType,
-        verificationDate: stats.verifiedDate,
-      },
+      message: 'Rating deleted successfully',
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: error.message || 'Error fetching rating stats',
+      error: error.message,
     });
   }
 };
+
+// Helper function to update transporter rating
+async function updateTransporterRating(transporterId) {
+  try {
+    const stats = await Rating.aggregate([
+      { $match: { ratedUserId: transporterId } },
+      {
+        $group: {
+          _id: null,
+          avgRating: { $avg: '$rating' },
+        },
+      },
+    ]);
+
+    if (stats.length > 0) {
+      await Transporter.findOneAndUpdate(
+        { userId: transporterId },
+        { rating: Math.round(stats[0].avgRating * 10) / 10 }
+      );
+    }
+  } catch (error) {
+    logger.error('Error updating transporter rating:', error);
+  }
+}

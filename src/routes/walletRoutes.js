@@ -1,25 +1,38 @@
 const express = require('express');
 const router = express.Router();
 const walletController = require('../controllers/walletController');
-const auth = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 
-// GET routes - specific /me routes before generic /:userId route
-router.get('/me', auth, walletController.getOrCreateWallet);
-router.get('/statement', auth, walletController.getWalletStatement);
+/**
+ * WALLET ROUTES
+ * All wallet and balance endpoints
+ */
 
-// POST routes for /me
-router.post('/me/add-funds', auth, walletController.addFunds);
-router.post('/me/withdraw', auth, walletController.withdrawFunds);
-router.post('/me/verify-kyc', auth, walletController.verifyKYC);
+// GET wallet balance (protected)
+router.get('/', protect, walletController.getBalance);
 
-// PUT routes for /me
-router.put('/me/payment-info', auth, walletController.updateWalletPaymentInfo);
+// GET wallet details (protected)
+router.get('/details', protect, walletController.getDetails);
 
-// GET wallet by user ID
-router.get('/:userId', auth, walletController.getWalletById);
+// GET transaction history (protected)
+router.get('/transactions', protect, walletController.getTransactionHistory);
 
-// PUT routes for admin operations
-router.put('/:userId/freeze', auth, walletController.freezeWallet);
-router.put('/:userId/unfreeze', auth, walletController.unfreezeWallet);
+// POST top-up wallet (protected)
+router.post('/topup', protect, walletController.topUp);
+
+// POST withdraw from wallet (protected)
+router.post('/withdraw', protect, walletController.withdraw);
+
+// POST link payment method (protected)
+router.post('/link-payment', protect, walletController.linkPaymentMethod);
+
+// POST verify KYC (protected)
+router.post('/verify-kyc', protect, walletController.verifyKYC);
+
+// PUT freeze wallet (admin only)
+router.put('/:userId/freeze', protect, authorize('admin'), walletController.freezeWallet);
+
+// PUT unfreeze wallet (admin only)
+router.put('/:userId/unfreeze', protect, authorize('admin'), walletController.unfreezeWallet);
 
 module.exports = router;

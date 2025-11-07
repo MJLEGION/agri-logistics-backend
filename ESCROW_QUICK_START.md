@@ -360,7 +360,7 @@ curl -X PUT http://localhost:5000/api/wallets/$USER_ID/unfreeze \
 
 ---
 
-## 🧪 Using Postman
+## Using Postman
 
 1. **Import Collection** - Create a new Postman collection
 2. **Set Base URL** - `{{BASE_URL}} = http://localhost:5000`

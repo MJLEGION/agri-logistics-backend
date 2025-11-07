@@ -43,6 +43,18 @@ const cropSchema = new mongoose.Schema({
       required: true
     }
   },
+  // GeoJSON for geospatial queries
+  coordinates: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: {
+      type: [Number], // [longitude, latitude]
+      default: null
+    }
+  },
   status: {
     type: String,
     enum: ['listed', 'matched', 'picked_up', 'in_transit', 'delivered'],
@@ -50,6 +62,22 @@ const cropSchema = new mongoose.Schema({
   }
 }, {
   timestamps: true
+});
+
+// Create 2dsphere index for geospatial queries
+cropSchema.index({ coordinates: '2dsphere' });
+cropSchema.index({ farmerId: 1, status: 1 });
+cropSchema.index({ status: 1, createdAt: -1 });
+
+// Middleware to automatically update coordinates before saving
+cropSchema.pre('save', function(next) {
+  if (this.location && this.location.latitude && this.location.longitude) {
+    this.coordinates = {
+      type: 'Point',
+      coordinates: [this.location.longitude, this.location.latitude]
+    };
+  }
+  next();
 });
 
 module.exports = mongoose.model('Crop', cropSchema);

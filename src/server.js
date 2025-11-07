@@ -21,10 +21,34 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
+
+// Legacy crop routes (backward compatibility)
 app.use('/api/crops', require('./routes/cropRoutes'));
+
+// NEW cargo/product routes
+app.use('/api/cargo', require('./routes/cargoRoutes'));
+
+// Trip management
+app.use('/api/trips', require('./routes/tripRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes'));
+
+// Transporter management
 app.use('/api/transporters', require('./routes/transporterRoutes'));
+
+// Payment processing
 app.use('/api/payments', require('./routes/paymentRoutes'));
+
+// Rating & review system
+app.use('/api/ratings', require('./routes/ratingRoutes'));
+
+// Wallet & balance management
+app.use('/api/wallet', require('./routes/walletRoutes'));
+
+// Cargo-Transporter matching
+app.use('/api/matching', require('./routes/matchingRoutes'));
+
+// Location & Real-time tracking
+app.use('/api/location', require('./routes/locationRoutes'));
 
 // Payment Escrow System Routes
 app.use('/api/transactions', require('./routes/transactionRoutes'));
@@ -37,19 +61,39 @@ app.use('/api/wallets', require('./routes/walletRoutes'));
 app.get('/', (req, res) => {
   res.json({ 
     message: 'Agri-Logistics API',
-    version: '2.0.0',
+    version: '3.1.0',
+    timestamp: new Date().toISOString(),
     endpoints: {
-      auth: '/api/auth',
-      crops: '/api/crops',
-      orders: '/api/orders',
-      transporters: '/api/transporters',
-      payments: '/api/payments',
-      transactions: '/api/transactions (NEW)',
-      escrows: '/api/escrows (NEW)',
-      receipts: '/api/receipts (NEW)',
-      disputes: '/api/disputes (NEW)',
-      wallets: '/api/wallets (NEW)'
-    }
+      auth: '/api/auth - Authentication & user management',
+      cargo: '/api/cargo - NEW: Cargo/product listing with advanced features',
+      crops: '/api/crops - Legacy: Crop listing (backward compatibility)',
+      trips: '/api/trips - NEW: Trip management & cargo assignments',
+      orders: '/api/orders - Legacy: Orders (backward compatibility)',
+      transporters: '/api/transporters - Transporter profiles & management',
+      payments: '/api/payments - Payment processing (MoMo + Flutterwave + legacy endpoints)',
+      momo: '/api/payments/momo - NEW: MTN MoMo mobile money integration',
+      ratings: '/api/ratings - NEW: Rating & review system',
+      wallet: '/api/wallet - NEW: Wallet & balance management',
+      matching: '/api/matching - NEW: Cargo-transporter matching',
+      location: '/api/location - NEW: Real-time location tracking & nearby search',
+      transactions: '/api/transactions - Transactions & payments',
+      escrows: '/api/escrows - Payment escrow system',
+      receipts: '/api/receipts - Receipt generation',
+      disputes: '/api/disputes - Dispute management',
+      wallets: '/api/wallets - Wallet management (legacy)'
+    },
+    features: [
+      '✅ MTN MoMo mobile money payment integration',
+      '✅ Advanced cargo search & filtering',
+      '✅ Trip management with status tracking',
+      '✅ Comprehensive rating & review system',
+      '✅ Wallet management with KYC verification',
+      '✅ Intelligent cargo-transporter matching',
+      '✅ Payment processing with escrow support',
+      '✅ Real-time location tracking',
+      '✅ Distance-based search',
+      '✅ Leaderboard & transporter stats'
+    ]
   });
 });
 

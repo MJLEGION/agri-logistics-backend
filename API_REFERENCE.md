@@ -1,11 +1,11 @@
-# 🔌 API Reference Guide
+# API Reference Guide
 
 **Base URL**: `http://localhost:5000/api`  
 **All endpoints** (except auth/login/register) require: `Authorization: Bearer <token>`
 
 ---
 
-## 🔐 Authentication Endpoints
+## Authentication Endpoints
 
 ### Register User
 
@@ -60,7 +60,7 @@ Response (200):
 }
 ```
 
-### Refresh Token ⭐ NEW
+### Refresh Token (NEW)
 
 ```
 POST /api/auth/refresh
@@ -102,7 +102,7 @@ Response (200):
 
 ---
 
-## 🌾 Crop Endpoints
+## Crop Endpoints
 
 ### Get All Crops
 
@@ -205,15 +205,15 @@ Response (200):
 
 ---
 
-## 📦 Order Endpoints
+## Order Endpoints
 
-### Get My Orders ⭐ NEW (Smart Filtering)
+### Get My Orders (NEW - Smart Filtering)
 
 ```
 GET /api/orders/my-orders
 Authorization: Bearer <token>
 
-💡 Returns:
+Returns:
 - Farmers: Orders for their crops
 - Buyers: Orders they placed
 - Transporters: Orders assigned to them
@@ -280,15 +280,15 @@ Response (201):
 }
 ```
 
-### Accept Order (Transporter only) ⭐ NEW
+### Accept Order (Transporter only - NEW)
 
 ```
 PUT /api/orders/:id/accept
 Authorization: Bearer <transporter_token>
 
-✅ This assigns the transporter to the order
-✅ Updates order status to "in_progress"
-✅ Updates crop status to "matched"
+[DONE] This assigns the transporter to the order
+[DONE] Updates order status to "in_progress"
+[DONE] Updates crop status to "matched"
 
 Response (200):
 {
@@ -335,7 +335,7 @@ Response (200):
 
 ---
 
-## 💳 Payment Endpoints ⭐ NEW (MOCK)
+## Payment Endpoints (NEW - MOCK)
 
 ### Initiate Payment
 
@@ -371,7 +371,7 @@ Response (200):
 GET /api/payments/flutterwave/status/:referenceId
 Authorization: Bearer <token>
 
-⏳ Status flow:
+Status flow:
 1. pending → in progress
 2. pending → completed (after ~3 seconds in mock)
 3. completed → verified
@@ -411,26 +411,26 @@ Response (200):
 
 ---
 
-## 🛡️ Authorization Rules
+## Authorization Rules
 
 | Endpoint           | Method | Farmer | Buyer | Transporter |
 | ------------------ | ------ | ------ | ----- | ----------- |
-| /crops             | GET    | ✅     | ✅    | ✅          |
-| /crops             | POST   | ✅     | ❌    | ❌          |
-| /crops/:id         | PUT    | ✅\*   | ❌    | ❌          |
-| /crops/:id         | DELETE | ✅\*   | ❌    | ❌          |
-| /orders/my-orders  | GET    | ✅     | ✅    | ✅          |
-| /orders            | POST   | ❌     | ✅    | ❌          |
-| /orders            | GET    | ✅     | ✅    | ✅          |
-| /orders/:id        | PUT    | ✅\*   | ✅\*  | ✅\*        |
-| /orders/:id/accept | PUT    | ❌     | ❌    | ✅          |
-| /payments/\*       | ALL    | ✅     | ✅    | ✅          |
+| /crops             | GET    | YES    | YES   | YES         |
+| /crops             | POST   | YES    | NO    | NO          |
+| /crops/:id         | PUT    | YES\*  | NO    | NO          |
+| /crops/:id         | DELETE | YES\*  | NO    | NO          |
+| /orders/my-orders  | GET    | YES    | YES   | YES         |
+| /orders            | POST   | NO     | YES   | NO          |
+| /orders            | GET    | YES    | YES   | YES         |
+| /orders/:id        | PUT    | YES\*  | YES\* | YES\*       |
+| /orders/:id/accept | PUT    | NO     | NO    | YES         |
+| /payments/\*       | ALL    | YES    | YES   | YES         |
 
 \*Ownership/Authorization checks apply
 
 ---
 
-## 🧪 Example Flow
+## Example Flow
 
 ### 1. Register as Farmer
 
@@ -539,7 +539,7 @@ curl -X GET http://localhost:5000/api/payments/flutterwave/status/<referenceId> 
 
 ---
 
-## ❌ Common Error Responses
+## Common Error Responses
 
 ### 401 - Unauthorized
 
@@ -587,7 +587,7 @@ curl -X GET http://localhost:5000/api/payments/flutterwave/status/<referenceId> 
 
 ---
 
-## 📝 Notes
+## Notes
 
 - All timestamps in ISO 8601 format
 - Amounts in RWF (Rwandan Francs)
@@ -598,4 +598,4 @@ curl -X GET http://localhost:5000/api/payments/flutterwave/status/<referenceId> 
 ---
 
 **Last Updated**: 2024  
-**Status**: ✅ Ready for Testing
+**Status**: Ready for Testing

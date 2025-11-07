@@ -1,26 +1,26 @@
 const express = require('express');
 const router = express.Router();
 const escrowController = require('../controllers/escrowController');
-const auth = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 
 // POST routes
-router.post('/', auth, escrowController.createEscrow);
+router.post('/', protect, escrowController.createEscrow);
 router.post('/auto-release', escrowController.autoReleaseEscrows);
 
 // GET routes - specific routes before generic /:id route
-router.get('/my-escrows', auth, escrowController.getMyEscrows);
-router.get('/stats', auth, escrowController.getEscrowStats);
-router.get('/transaction/:transactionId', auth, escrowController.getEscrowByTransaction);
+router.get('/my-escrows', protect, escrowController.getMyEscrows);
+router.get('/stats', protect, escrowController.getEscrowStats);
+router.get('/transaction/:transactionId', protect, escrowController.getEscrowByTransaction);
 
 // GET all escrows
-router.get('/', auth, escrowController.getAllEscrows);
+router.get('/', protect, escrowController.getAllEscrows);
 
 // GET escrow by ID
-router.get('/:escrowId', auth, escrowController.getEscrowById);
+router.get('/:escrowId', protect, escrowController.getEscrowById);
 
 // PUT routes
-router.put('/:escrowId/release', auth, escrowController.releaseEscrow);
-router.put('/:escrowId/refund', auth, escrowController.refundEscrow);
-router.put('/:escrowId/dispute', auth, escrowController.disputeEscrow);
+router.put('/:escrowId/release', protect, escrowController.releaseEscrow);
+router.put('/:escrowId/refund', protect, escrowController.refundEscrow);
+router.put('/:escrowId/dispute', protect, escrowController.disputeEscrow);
 
 module.exports = router;
