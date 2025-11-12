@@ -93,6 +93,11 @@ const cropSchema = new mongoose.Schema({
     type: String,
     enum: ['listed', 'matched', 'picked_up', 'in_transit', 'delivered'],
     default: 'listed'
+  },
+  transporterId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: false
   }
 }, {
   timestamps: true

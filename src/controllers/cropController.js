@@ -200,3 +200,105 @@ exports.getCropsByFarmer = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// @desc    Assign transporter to cargo
+// @route   PUT /api/crops/:id/assign-transporter
+// @access  Private (Transporter only)
+exports.assignTransporter = async (req, res) => {
+  try {
+    const crop = await Crop.findById(req.params.id);
+
+    if (!crop) {
+      return res.status(404).json({ message: 'Cargo not found' });
+    }
+
+    // Check if cargo is available (not already assigned)
+    if (crop.status !== 'listed') {
+      return res.status(400).json({
+        message: 'Cargo is not available for pickup',
+        currentStatus: crop.status
+      });
+    }
+
+    // Get transporter ID from authenticated user
+    const transporterId = req.user._id || req.user.id;
+
+    // Check if user is a transporter
+    if (req.user.role !== 'transporter') {
+      return res.status(403).json({
+        message: 'Only transporters can accept cargo'
+      });
+    }
+
+    // Assign transporter and update status
+    crop.transporterId = transporterId;
+    crop.status = 'matched';
+
+    await crop.save();
+
+    // Populate transporter details for response
+    await crop.populate('transporterId', 'name phone email');
+
+    res.json({
+      success: true,
+      message: 'Cargo accepted successfully',
+      cargo: crop
+    });
+  } catch (error) {
+    console.error('Error assigning transporter:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Update cargo status by transporter
+// @route   PUT /api/crops/:id/update-status
+// @access  Private (Transporter only - assigned transporter)
+exports.updateCargoStatus = async (req, res) => {
+  try {
+    const crop = await Crop.findById(req.params.id);
+
+    if (!crop) {
+      return res.status(404).json({ message: 'Cargo not found' });
+    }
+
+    // Get transporter ID from authenticated user
+    const transporterId = req.user._id || req.user.id;
+
+    // Check if user is a transporter
+    if (req.user.role !== 'transporter') {
+      return res.status(403).json({
+        message: 'Only transporters can update cargo status'
+      });
+    }
+
+    // Check if this transporter is assigned to this cargo
+    if (!crop.transporterId || crop.transporterId.toString() !== transporterId.toString()) {
+      return res.status(403).json({
+        message: 'You are not assigned to this cargo'
+      });
+    }
+
+    const { status } = req.body;
+
+    // Validate status transitions
+    const allowedStatuses = ['matched', 'picked_up', 'in_transit', 'delivered'];
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        message: 'Invalid status. Allowed: matched, picked_up, in_transit, delivered'
+      });
+    }
+
+    // Update status
+    crop.status = status;
+    await crop.save();
+
+    res.json({
+      success: true,
+      message: `Cargo status updated to ${status}`,
+      cargo: crop
+    });
+  } catch (error) {
+    console.error('Error updating cargo status:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
