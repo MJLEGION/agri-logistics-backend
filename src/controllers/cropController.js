@@ -39,7 +39,19 @@ exports.createCrop = async (req, res) => {
       return res.status(403).json({ message: 'Only farmers can list crops' });
     }
 
-    const { name, quantity, unit, pricePerUnit, harvestDate, location } = req.body;
+    const {
+      name,
+      quantity,
+      unit,
+      pricePerUnit,
+      harvestDate,
+      location,
+      destination,
+      shippingCost,
+      distance,
+      eta,
+      suggestedVehicle
+    } = req.body;
 
     // Input validation
     if (!name || !quantity || !harvestDate || !location) {
@@ -99,7 +111,12 @@ exports.createCrop = async (req, res) => {
         latitude,
         longitude,
         address: address.trim()
-      }
+      },
+      destination: destination || undefined,
+      shippingCost: shippingCost || 0,
+      distance: distance || 0,
+      eta: eta || 0,
+      suggestedVehicle: suggestedVehicle || 'van'
     });
 
     res.status(201).json(crop);

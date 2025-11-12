@@ -29,6 +29,26 @@ const cropSchema = new mongoose.Schema({
     type: Date,
     required: true
   },
+  shippingCost: {
+    type: Number,
+    min: 0,
+    default: 0
+  },
+  distance: {
+    type: Number,
+    min: 0,
+    default: 0
+  },
+  eta: {
+    type: Number,
+    min: 0,
+    default: 0
+  },
+  suggestedVehicle: {
+    type: String,
+    enum: ['moto', 'van', 'truck'],
+    default: 'van'
+  },
   location: {
     latitude: {
       type: Number,
@@ -41,6 +61,20 @@ const cropSchema = new mongoose.Schema({
     address: {
       type: String,
       required: true
+    }
+  },
+  destination: {
+    latitude: {
+      type: Number,
+      required: false
+    },
+    longitude: {
+      type: Number,
+      required: false
+    },
+    address: {
+      type: String,
+      required: false
     }
   },
   // GeoJSON for geospatial queries
