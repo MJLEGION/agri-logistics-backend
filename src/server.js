@@ -113,12 +113,10 @@ app.use((req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-// Only start server if not in Vercel serverless environment
-if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
-  app.listen(PORT, () => {
-    console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
-  });
-}
+// Start server for Railway/traditional hosting
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+});
 
-// Export for Vercel serverless
+// Export for compatibility
 module.exports = app;
