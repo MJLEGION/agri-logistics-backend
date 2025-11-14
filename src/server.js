@@ -6,11 +6,6 @@ const connectDB = require('./config/database');
 // Load env vars
 dotenv.config();
 
-// Connect to database
-(async () => {
-  await connectDB();
-})();
-
 // Initialize express
 const app = express();
 
@@ -138,10 +133,22 @@ app.use((req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-// Start server for Railway/traditional hosting
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
-});
+// Connect to database then start server
+const startServer = async () => {
+  try {
+    await connectDB();
+    console.log('✅ Database connected successfully');
+
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`✅ Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+startServer();
 
 // Export for compatibility
 module.exports = app;
