@@ -158,6 +158,56 @@ curl -H "Authorization: Bearer YOUR_TOKEN_HERE" \
 
 ## 🎯 Test Data Setup
 
+### Quick: Seed Demo Accounts (Recommended)
+
+Run this to automatically create demo accounts:
+
+```bash
+node scripts/seedDemoAccounts.js
+```
+
+**Demo Credentials:**
+- **Shipper**: 0788111111 / password123
+- **Transporter**: 0789222222 / password123
+
+### ⚠️ IMPORTANT: Update Frontend UI
+
+The frontend repo also has hardcoded demo credentials that **must be manually updated**:
+
+**File**: `agri-logistics-platform/src/screens/auth/LoginScreen.tsx`
+
+**Lines 37 & 42**: Replace the old phone numbers with new ones:
+
+```tsx
+// BEFORE:
+const DEMO_CREDENTIALS: Record<UserRole, { phone: string; password: string; name: string }> = {
+  shipper: {
+    phone: '0788000001',  // ← Change to '0788111111'
+    password: 'password123',
+    name: 'Test Shipper (John Farmer)',
+  },
+  transporter: {
+    phone: '0789000003',  // ← Change to '0789222222'
+    password: 'password123',
+    name: 'Test Transporter (Mike)',
+  },
+};
+
+// AFTER:
+const DEMO_CREDENTIALS: Record<UserRole, { phone: string; password: string; name: string }> = {
+  shipper: {
+    phone: '0788111111',  // Updated
+    password: 'password123',
+    name: 'Test Shipper (John Farmer)',
+  },
+  transporter: {
+    phone: '0789222222',  // Updated
+    password: 'password123',
+    name: 'Test Transporter (Mike)',
+  },
+};
+```
+
 ### Create Sample User Accounts
 
 ```bash

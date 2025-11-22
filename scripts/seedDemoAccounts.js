@@ -26,14 +26,14 @@ const User = require('../src/models/user');
 const DEMO_ACCOUNTS = [
   {
     name: 'Test Shipper',
-    phone: '0788000001',
+    phone: '0788111111',
     password: 'password123',
     role: 'farmer', // Backend role for shipper
     description: 'Demo shipper account'
   },
   {
     name: 'Test Transporter',
-    phone: '0789000003',
+    phone: '0789222222',
     password: 'password123',
     role: 'transporter',
     description: 'Demo transporter account'
@@ -47,9 +47,7 @@ const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
-      useUnifiedTopology: true,
-      useCreateIndex: true,
-      useFindAndModify: false
+      useUnifiedTopology: true
     });
     console.log('✅ MongoDB connected successfully');
   } catch (error) {
@@ -97,8 +95,8 @@ const seedDemoAccounts = async () => {
 
     console.log('🎉 Demo account seeding completed!\n');
     console.log('📱 Demo Credentials:');
-    console.log('   Shipper:     0788000001 / password123');
-    console.log('   Transporter: 0789000003 / password123\n');
+    console.log('   Shipper:     0788111111 / password123');
+    console.log('   Transporter: 0789222222 / password123\n');
 
   } catch (error) {
     console.error('❌ Seeding error:', error.message);
@@ -125,4 +123,6 @@ const main = async () => {
 };
 
 // Run the script
-main();
+if (require.main === module) {
+  main();
+}
